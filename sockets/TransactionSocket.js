@@ -1,6 +1,7 @@
 const EtudiantSocket = require('./EtudiantSocket');
 const { Transaction } = require('../models');
 const mongoose = require('mongoose');
+const { Etudiant } = require('../models');
 
 /**
  * Socket pour la gestion des transactions financières des étudiants
@@ -20,6 +21,16 @@ class TransactionSocket extends EtudiantSocket {
             
             socket.on('transaction:update-solde', (data) => 
                 this.requireAuth(socket, () => this.handleUpdateSolde(socket, data)));
+            
+            // Gestion des frais académiques
+            socket.on('transaction:get-frais-acad', () => 
+                this.requireAuth(socket, () => this.handleGetFraisAcad(socket)));
+                
+            socket.on('transaction:update-frais-acad', (data) => 
+                this.requireAuth(socket, () => this.handleUpdateFraisAcad(socket, data)));
+                
+            socket.on('transaction:payer-frais-acad', (data) => 
+                this.requireAuth(socket, () => this.handlePayerFraisAcad(socket, data)));
             
             // Gestion des commandes
             socket.on('transaction:add-commande', (data) => 
@@ -521,6 +532,173 @@ class TransactionSocket extends EtudiantSocket {
             
         } catch (error) {
             this.handleError(error, socket, 'transaction:delete-recharge');
+        }
+    }
+
+    /**
+     * Récupère les frais académiques d'un étudiant
+     */
+    async handleGetFraisAcad(socket) {
+        try {
+            const etudiantId = socket.etudiantId;
+            
+            const transaction = await this.getFromCache(
+                `transaction:${etudiantId}:frais-acad`, 
+                async () => {
+                    // Trouver ou créer l'enregistrement de transaction pour l'étudiant
+                    let transactionDoc = await Transaction.findOne({ etudiantId });
+                    
+                    if (!transactionDoc) {
+                        // Si aucun enregistrement n'existe, en créer un nouveau
+                        const etudiant = await this.getFromCache(
+                            `etudiant:${etudiantId}:profile`, 
+                            async () => await Etudiant.findById(etudiantId)
+                        );
+                        
+                        transactionDoc = await Transaction.create({
+                            etudiantId,
+                            solde: etudiant?.infoSec?.solde || 0,
+                            fraisAcad: 0
+                        });
+                    }
+                    
+                    return transactionDoc;
+                }
+            );
+            
+            this.emitSuccess(socket, 'transaction:frais-acad', {
+                fraisAcad: transaction.fraisAcad
+            });
+            
+        } catch (error) {
+            this.handleError(error, socket, 'transaction:get-frais-acad');
+        }
+    }
+
+    /**
+     * Met à jour le montant des frais académiques (définir la valeur totale des frais)
+     */
+    async handleUpdateFraisAcad(socket, data) {
+        try {
+            const etudiantId = socket.etudiantId;
+            
+            if (!data || data.fraisAcad === undefined || isNaN(data.fraisAcad) || data.fraisAcad < 0) {
+                throw new Error('Montant des frais académiques invalide');
+            }
+            
+            // Mise à jour des frais académiques
+            const transaction = await Transaction.findOneAndUpdate(
+                { etudiantId },
+                { $set: { fraisAcad: data.fraisAcad } },
+                { new: true, upsert: true }
+            );
+            
+            // Invalider les caches concernés
+            await this.invalidateCache(`transaction:${etudiantId}:all`);
+            await this.invalidateCache(`transaction:${etudiantId}:frais-acad`);
+            
+            this.emitSuccess(socket, 'transaction:frais-acad-updated', { 
+                fraisAcad: transaction.fraisAcad 
+            });
+            
+        } catch (error) {
+            this.handleError(error, socket, 'transaction:update-frais-acad');
+        }
+    }
+
+    /**
+     * Effectue un paiement des frais académiques (déduit du solde étudiant)
+     */
+    async handlePayerFraisAcad(socket, data) {
+        try {
+            const etudiantId = socket.etudiantId;
+            
+            if (!data || !data.montant || isNaN(data.montant) || data.montant <= 0) {
+                throw new Error('Montant du paiement invalide');
+            }
+            
+            // Récupérer la transaction et vérifier le solde
+            const transaction = await Transaction.findOne({ etudiantId });
+            if (!transaction) {
+                throw new Error('Aucun enregistrement de transaction trouvé');
+            }
+            
+            if (transaction.solde < data.montant) {
+                throw new Error('Solde insuffisant pour effectuer ce paiement');
+            }
+            
+            // Générer une référence unique pour la commande
+            const ref = `FRAIS-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+            
+            const newCommande = {
+                product: 'Frais Académiques',
+                montant: data.montant,
+                ref,
+                date_created: new Date()
+            };
+            
+            // Mettre à jour la transaction
+            const updatedTransaction = await Transaction.findOneAndUpdate(
+                { etudiantId },
+                { 
+                    $push: { commandes: newCommande },
+                    $inc: { solde: -data.montant }
+                },
+                { new: true }
+            );
+            
+            // Mettre à jour également le solde de l'étudiant
+            await Etudiant.findByIdAndUpdate(
+                etudiantId,
+                { $inc: { 'infoSec.solde': -data.montant } }
+            );
+            
+            // Invalider les caches concernés
+            await this.invalidateCache(`transaction:${etudiantId}:all`);
+            await this.invalidateCache(`transaction:${etudiantId}:frais-acad`);
+            await this.invalidateCache(`etudiant:${etudiantId}:profile`);
+            
+            this.emitSuccess(socket, 'transaction:frais-acad-paye', {
+                paiement: newCommande,
+                solde: updatedTransaction.solde
+            });
+            
+        } catch (error) {
+            this.handleError(error, socket, 'transaction:payer-frais-acad');
+        }
+    }
+
+    /**
+     * Vérifie si tous les frais académiques sont payés
+     */
+    async handleVerifierFraisPayes(socket) {
+        try {
+            const etudiantId = socket.etudiantId;
+            
+            // Récupérer la transaction
+            const transaction = await Transaction.findOne({ etudiantId });
+            if (!transaction) {
+                throw new Error('Aucun enregistrement de transaction trouvé');
+            }
+            
+            // Calculer le total des frais académiques payés
+            const fraisPayes = transaction.commandes
+                .filter(c => c.product === 'Frais Académiques')
+                .reduce((total, commande) => total + commande.montant, 0);
+            
+            // Déterminer si tous les frais sont payés
+            const fraisComplets = fraisPayes >= transaction.fraisAcad;
+            const resteAPayer = Math.max(0, transaction.fraisAcad - fraisPayes);
+            
+            this.emitSuccess(socket, 'transaction:frais-acad-statut', {
+                fraisTotal: transaction.fraisAcad,
+                fraisPayes,
+                resteAPayer,
+                fraisComplets
+            });
+            
+        } catch (error) {
+            this.handleError(error, socket, 'transaction:verifier-frais-payes');
         }
     }
 }
