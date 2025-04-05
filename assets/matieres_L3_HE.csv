@@ -1,0 +1,23 @@
+designation;credit;code;semestre;codeUnite
+Organisation et Sécurité des Chantiers ;3.00;EC_1;Premier;GPC301
+Analyse des travaux 1;1.00;EC_2;Premier;GPC301
+Analyse des travaux 2;1.00;EC_3;Premier;GPC301
+Stabilité des constructions 1;3.00;EC_1;Premier;CIB301
+Constructions en béton Armé 1;3.00;EC_1;Premier;CIB302
+Constructions en bois 1;2.00;EC_2;Premier;CIB302
+Constructions métalliques 1;2.00;EC_3;Premier;CIB302
+Travaux hydrauliques 1;3.00;EC_1;Premier;HYD301
+Ponts 1;3.00;EC_1;Premier;PCH301
+Installations sanitaires;2.00;EC_1;Premier;CIB303
+Installations électriques;2.00;EC_2;Premier;CIB303
+Assainissement urbain et rural;3.00;EC_1;Second;ENV301
+Ecologie et Salubrité de l'environnement ;2.00;EC_2;Second;ENV301
+Travaux hydrauliques 2;3.00;EC_1;Second;HYD302
+Exploitation des eaux souterraines;2.00;EC_1;Second;HYD303
+Hydraulique urbaine;2.00;EC_2;Second;HYD303
+Logiciels spécialisés ;3.00;EC_1;Second;SCI301
+Stage de fin de cycle;9.00;EC_1;Second;RCB311
+Législation de la construction ;2.00;EC_1;Premier;LEG391
+Ethique et Déontologie professionnelle ;1.00;EC_2;Premier;LEG391
+Projet de fin de cycle;6.00;EC_1;Second;RCB301
+Géotechnique appliquée 1;2.00;EC_1;Premier;GFD301
