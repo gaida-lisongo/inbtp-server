@@ -1,7 +1,9 @@
 const Etudiant = require('../models/etudiant.model');
+const Transaction = require('../models/transaction.model'); // Add this import too
 const csv = require('csv-parser');
 const fs = require('fs');
 const path = require('path');
+const cache = require('../utils/cache');
 
 class EtudiantController {
     // Créer un étudiant
@@ -82,17 +84,18 @@ class EtudiantController {
     async updateEtudiant(id, updateData) {
         try {
             // Conversion de la date si présente
-            if (updateData.infoPerso?.dateNaissance) {
-                updateData.infoPerso.dateNaissance = this._parseFrenchDate(
-                    updateData.infoPerso.dateNaissance
-                );
-            }
-
-            return await Etudiant.findByIdAndUpdate(
+            // if (updateData.infoPerso?.dateNaissance) {
+            //     updateData.infoPerso.dateNaissance = this._parseFrenchDate(
+            //         updateData.infoPerso.dateNaissance
+            //     );
+            // }
+            const result = await Etudiant.findByIdAndUpdate(
                 id,
                 updateData,
                 { new: true, runValidators: true }
             );
+            console.log("Updating student with ID:", result);
+            return result;
         } catch (error) {
             throw error;
         }
@@ -163,6 +166,74 @@ class EtudiantController {
         if (!dateStr) return null;
         const [day, month, year] = dateStr.split('/');
         return new Date(year, month - 1, day);
+    }
+
+    /**
+     * Récupérer les commandes par promotion et produit
+     */
+    async getCommandesByProduit(promotionId, product) {
+        try {
+            // Utiliser le cache si disponible
+            const cacheKey = `commandes:produit:${promotionId}:${product || 'all'}`;
+            const cachedData = await cache.get(cacheKey);
+            if (cachedData) {
+                return cachedData;
+            }
+
+            const commandes = await Transaction.aggregate([
+                { $unwind: '$commandes' },
+                {
+                    $addFields: {
+                        'refParts': {
+                            $split: ['$commandes.ref', '=']
+                        }
+                    }
+                },
+                {
+                    $match: {
+                        $expr: {
+                            $eq: [{ $arrayElemAt: ['$refParts', 0] }, promotionId]
+                        },
+                        ...(product ? { 'commandes.product': product } : {})
+                    }
+                },
+                {
+                    $lookup: {
+                        from: 'etudiants',
+                        localField: 'etudiantId',
+                        foreignField: '_id',
+                        as: 'etudiant'
+                    }
+                },
+                { $unwind: '$etudiant' },
+                {
+                    $project: {
+                        _id: 1,
+                        etudiant: {
+                            nom: '$etudiant.infoPerso.nom',
+                            postnom: '$etudiant.infoPerso.postNom',
+                            prenom: '$etudiant.infoPerso.preNom',
+                            matricule: '$etudiant.infoSec.etudiantId'
+                        },
+                        commande: {
+                            product: '$commandes.product',
+                            montant: '$commandes.montant',
+                            date_created: '$commandes.date_created',
+                            ref: '$commandes.ref'
+                        }
+                    }
+                },
+                { $sort: { 'commande.date_created': -1 } }
+            ]);
+
+            // Mettre en cache pour 5 minutes
+            await cache.set(cacheKey, commandes, 300);
+
+            return commandes;
+        } catch (error) {
+            console.error('Erreur dans getCommandesByProduit:', error);
+            throw error;
+        }
     }
 }
 

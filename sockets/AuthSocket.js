@@ -63,7 +63,7 @@ class AuthSocket extends Socket {
             socket.on('auth:verify-otp', (data) => this.handleVerifyOtp(socket, data));
             
             // Déconnexion
-            socket.on('auth:logout', () => this.handleLogout(socket));
+            socket.on('auth:logout', (data) => this.handleLogout(socket, data));
             
             // Recherche par nom
             socket.on('auth:search-by-name', (data) => this.handleSearchByName(socket, data));
@@ -159,7 +159,6 @@ class AuthSocket extends Socket {
                 process.env.JWT_SECRET || 'secret-key',
                 { expiresIn: '24h' }
             );
-            
             // Ajout aux connectés
             this.connectedStudents.set(etudiant._id.toString(), {
                 matricule: etudiant.infoSec.etudiantId,
@@ -189,10 +188,11 @@ class AuthSocket extends Socket {
     /**
      * Déconnexion
      */
-    handleLogout(socket) {
+    handleLogout(socket, data) {
         try {
-            const etudiantId = socket.etudiantId;
-            
+            const etudiantId = data.etudiantId;
+            console.log('Déconnexion de l\'étudiant:', etudiantId);
+
             if (etudiantId) {
                 this.connectedStudents.delete(etudiantId);
                 socket.etudiantId = null;
@@ -354,6 +354,7 @@ class AuthSocket extends Socket {
      * Middleware d'authentification
      */
     requireAuth(socket, callback) {
+        console.log('Vérification de l\'authentification du socket:',);
         if (this.isAuthenticated(socket)) {
             callback();
         } else {

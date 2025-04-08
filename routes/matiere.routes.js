@@ -135,6 +135,22 @@ router.get('/', async (req, res) => {
     }
 });
 
+// Obtenir une matière par ID d'unité
+router.get('/unite/:uniteId', async (req, res) => {
+    try {
+        const matiere = await matiereController.getMatiereByCodeUnite(req.params.uniteId);
+        console.log("Matière trouvée:", matiere);
+        res.json({
+            success: true,
+            data: matiere
+        });
+    } catch (error) {
+        res.status(404).json({
+            success: false,
+            error: error.message
+        });
+    }
+});
 // Obtenir une matière par ID
 router.get('/:id', async (req, res) => {
     try {

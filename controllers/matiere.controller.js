@@ -114,20 +114,28 @@ class MatiereController {
             throw error;
         }
     }
-
-    // Obtenir les charges horaires d'une matière
+    /**
+     * Obtenir les charges horaires d'une matière
+     */
     async getChargesHoraires(matiereId) {
         try {
             const matiere = await Matiere.findById(matiereId)
                 .populate('charges_horaires.titulaire', 'nom prenom email')
-                .populate('charges_horaires.anneeId');
+                .populate('charges_horaires.anneeId')
+                .select('charges_horaires')
+                .lean();
             
             if (!matiere) {
                 throw new Error("Matière non trouvée");
             }
 
-            return matiere.charges_horaires;
+            return {
+                success: true,
+                data: matiere.charges_horaires || [],
+                count: matiere.charges_horaires?.length || 0
+            };
         } catch (error) {
+            console.error("Erreur dans getChargesHoraires:", error);
             throw error;
         }
     }
@@ -167,6 +175,15 @@ class MatiereController {
     async getMatiereById(id) {
         try {
             return await Matiere.findById(id);
+        } catch (error) {
+            throw error;
+        }
+    }
+
+    // Obtenir une matière par codeUnite
+    async getMatiereByCodeUnite(codeUnite) {
+        try {
+            return await Matiere.find({ codeUnite });
         } catch (error) {
             throw error;
         }

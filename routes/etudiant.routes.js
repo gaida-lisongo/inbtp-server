@@ -82,6 +82,9 @@ router.get('/:id', async (req, res) => {
 // Mettre à jour un étudiant
 router.put('/:id', async (req, res) => {
     try {
+        console.log("Updating student with ID:", req.params.id);
+        console.log("Request body:", req.body);
+        
         const etudiant = await etudiantController.updateEtudiant(
             req.params.id,
             req.body
@@ -118,6 +121,30 @@ router.delete('/:id', async (req, res) => {
         res.json({
             success: true,
             message: "Étudiant supprimé avec succès"
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            error: error.message
+        });
+    }
+});
+
+// Récupérer les commandes par promotion et produit
+router.post('/commandes/product/:promotion', async (req, res) => {
+    try {
+        const { promotion } = req.params;
+        const { product } = req.body;
+
+        const commandes = await etudiantController.getCommandesByProduit(
+            promotion,
+            product
+        );
+
+        res.json({
+            success: true,
+            count: commandes.length,
+            data: commandes
         });
     } catch (error) {
         res.status(500).json({

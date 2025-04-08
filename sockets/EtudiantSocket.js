@@ -1,10 +1,10 @@
-const AuthSocket = require('./AuthSocket');
+const Socket = require('./Socket');
 const Etudiant = require('../models/etudiant.model');
 
 /**
  * Socket pour la gestion des étudiants
  */
-class EtudiantSocket extends AuthSocket {
+class EtudiantSocket extends Socket {
     /**
      * Initialisation des événements étudiants
      */
@@ -14,16 +14,16 @@ class EtudiantSocket extends AuthSocket {
         
         this.io.on('connection', (socket) => {
             // Événements de mise à jour du profil
-            socket.on('etudiant:get-profile', () => this.requireAuth(socket, () => this.handleGetProfile(socket)));
-            socket.on('etudiant:update-profile', (data) => this.requireAuth(socket, () => this.handleUpdateProfile(socket, data)));
-            socket.on('etudiant:update-avatar', (data) => this.requireAuth(socket, () => this.handleUpdateAvatar(socket, data)));
+            socket.on('etudiant:get-profile', () => this.handleGetProfile(socket));
+            socket.on('etudiant:update-profile', (data) => this.handleUpdateProfile(socket, data));
+            socket.on('etudiant:update-avatar', (data) => this.handleUpdateAvatar(socket, data));
             
             // Événements de gestion du solde
-            socket.on('etudiant:get-solde', () => this.requireAuth(socket, () => this.handleGetSolde(socket)));
-            socket.on('etudiant:recharge-solde', (data) => this.requireAuth(socket, () => this.handleRechargeSolde(socket, data)));
+            socket.on('etudiant:get-solde', () => () => this.handleGetSolde(socket));
+            socket.on('etudiant:recharge-solde', (data) => this.handleRechargeSolde(socket, data));
             
             // Événements de gestion des actifs
-            socket.on('etudiant:get-actifs', (data) => this.requireAuth(socket, () => this.handleGetActifs(socket, data)));
+            socket.on('etudiant:get-actifs', (data) => this.handleGetActifs(socket, data));
         });
     }
 
@@ -53,34 +53,17 @@ class EtudiantSocket extends AuthSocket {
      */
     async handleUpdateProfile(socket, data) {
         try {
-            const etudiantId = socket.etudiantId;
-            
-            // Vérification des données
-            const allowedFields = [
-                'infoPerso.telephone', 
-                'infoPerso.adresse', 
-                'infoSec.email'
-            ];
-            
-            // Filtrer les champs autorisés
-            const updateData = {};
-            for (const field in data) {
-                if (allowedFields.includes(field)) {
-                    updateData[field] = data[field];
-                }
-            }
-            
             // Mise à jour
             const etudiant = await Etudiant.findByIdAndUpdate(
-                etudiantId,
-                updateData,
+                data._id,
+                data,
                 { new: true, runValidators: true }
             );
             
             // Invalider le cache
-            await this.invalidateCache(`etudiant:${etudiantId}:profile`);
+            await this.invalidateCache(`etudiant:${etudiant._id}:profile`);
             
-            this.emitSuccess(socket, 'etudiant:profile-updated', this.sanitizeEtudiantData(etudiant));
+            this.emitSuccess(socket, 'etudiant:profile-updated', etudiant);
             
         } catch (error) {
             this.handleError(error, socket, 'etudiant:update-profile');

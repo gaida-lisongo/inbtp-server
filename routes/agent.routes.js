@@ -110,7 +110,6 @@ router.put('/:id', async (req, res) => {
                 error: "Agent non trouvé"
             });
         }
-
         res.json({
             success: true,
             message: "Agent modifié avec succès",
@@ -139,6 +138,75 @@ router.delete('/:id', async (req, res) => {
         res.json({
             success: true,
             message: "Agent supprimé avec succès"
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            error: error.message
+        });
+    }
+});
+
+router.post('/login', async (req, res) => {
+    console.log('Login', req.body)
+    try {
+        const { matricule } = req.body;
+        console.log('Login', req.body)
+        if (!matricule ) {
+            return res.status(400).json({
+                success: false,
+                error: "Matricule requis"
+            });
+        }
+
+        const response = await agentController.initiateAuth({matricule});
+        
+        if (!response) {
+            return res.status(401).json({
+                success: false,
+                error: "Identifiants invalides"
+            });
+        }
+
+        res.json({
+            success: true,
+            message: "Connexion réussie",
+            data: response
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            error: error.message
+        });
+    }
+});
+
+router.post('/verify', async (req, res) => {
+    try {
+        const { id, otp } = req.body;
+        console.log('Verify', req.body)
+
+        if (!id || !otp) {
+            return res.status(400).json({
+                success: false,
+                error: "Matricule et code requis"
+            });
+        }
+        const agentId = id;
+
+        const response = await agentController.verifyOTP(agentId, otp);
+        
+        if (!response) {
+            return res.status(401).json({
+                success: false,
+                error: "Identifiants invalides"
+            });
+        }
+
+        res.json({
+            success: true,
+            message: "Vérification réussie",
+            data: response
         });
     } catch (error) {
         res.status(500).json({

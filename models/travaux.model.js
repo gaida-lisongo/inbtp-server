@@ -57,6 +57,11 @@ const TravailSchema = new Schema({
         required: true,
         min: 0
     },
+    statut: {
+        type: String,
+        enum: ['EN ATTENTE', 'EN COURS', 'TERMINE'],
+        default: 'EN ATTENTE'
+    },
     questions: [QuestionSchema]
 }, {
     timestamps: true,

@@ -18,6 +18,9 @@ const ActifsSchema = new Schema({
 
 const EtudiantSchema = new Schema({
   infoPerso: {
+    profile: {
+      type: String,
+    },
     nom: { 
       type: String, 
       required: true,
@@ -38,7 +41,6 @@ const EtudiantSchema = new Schema({
     sexe: { 
       type: String, 
       enum: ['M', 'F'], 
-      required: true 
     },
     dateNaissance: { 
       type: Date 
@@ -56,7 +58,6 @@ const EtudiantSchema = new Schema({
     etudiantId: { 
       type: String, 
       unique: true,
-      required: true,
       trim: true
     },
     email: { 

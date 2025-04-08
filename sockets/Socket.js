@@ -65,6 +65,7 @@ class Socket {
             
             if (cachedData) {
                 console.log(`[CACHE HIT] ${key}`);
+                console.log(cachedData);
                 return cachedData;
             }
             
@@ -102,7 +103,7 @@ class Socket {
      * @param {Object} socket - Socket client
      * @param {String} event - Nom de l'événement
      */
-    handleError(error, socket, event) {
+        handleError(error, socket, event) {
         console.error(`[ERROR] ${event}:`, error);
         this.emitError(socket, event, error);
     }

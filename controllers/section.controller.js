@@ -27,7 +27,6 @@ class SectionController {
             throw error;
         }
     }
-
     // Importer depuis CSV
     async createFromCSV(fileName) {
         try {
@@ -205,6 +204,68 @@ class SectionController {
             throw error;
         }
     }
+
+    /**
+     * Récupère toutes les sections où un agent est membre
+     * @param {string} agentId - ID de l'agent
+     * @returns {Promise<Array>} - Liste des sections avec le rôle de l'agent
+     */
+    async getAgentSections(agentId) {
+        try {
+            if (!agentId) {
+                throw new Error("ID de l'agent requis");
+            }
+
+            // Rechercher dans le cache d'abord
+            const cachedSections = await cache.get(`agent:${agentId}:sections`);
+            if (cachedSections) {
+                console.log("Sections trouvées dans le cache");
+                return cachedSections;
+            }
+
+            console.log("Cache vide, recherche dans la base de données");
+            
+            // Rechercher toutes les sections où l'agent apparaît dans les bureaux
+            const sections = await Section.find({
+                'bureaux.agent': agentId
+            }).select('designation code bureaux');
+
+            // Si aucune section trouvée, retourner un tableau vide
+            if (!sections || sections.length === 0) {
+                console.log("Aucune section trouvée pour cet agent");
+                // Mettre en cache le tableau vide pour éviter des requêtes répétées
+                await cache.set(`agent:${agentId}:sections`, [], 300);
+                return [];
+            }
+
+            // Formatter les résultats pour inclure le rôle de l'agent dans chaque section
+            const formattedSections = sections.map(section => {
+                const bureau = section.bureaux.find(b => 
+                    b.agent.toString() === agentId.toString()
+                );
+                
+                if (!bureau) return null; // Skip si le bureau n'est pas trouvé
+
+                return {
+                    sectionId: section._id,
+                    designation: section.designation,
+                    code: section.code,
+                    role: bureau.role || 'Membre',
+                    dateDebut: bureau.dateDebut || new Date()
+                };
+            }).filter(Boolean); // Enlever les résultats null
+
+            // Mettre en cache pour 5 minutes
+            await cache.set(`agent:${agentId}:sections`, formattedSections, 300);
+
+            return formattedSections;
+
+        } catch (error) {
+            console.error("Erreur dans getAgentSections:", error);
+            return []; // Retourner un tableau vide en cas d'erreur
+        }
+    }
+    
 }
 
 module.exports = new SectionController();

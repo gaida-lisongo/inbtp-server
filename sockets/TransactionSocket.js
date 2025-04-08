@@ -1,65 +1,62 @@
-const EtudiantSocket = require('./EtudiantSocket');
-const { Transaction } = require('../models');
+const Socket = require('./Socket');
+const Transaction = require('../models/transaction.model');
 const mongoose = require('mongoose');
-const { Etudiant } = require('../models');
-
+const Etudiant = require('../models/etudiant.model');            
+// Importer le service de paiement avec require (compatible avec CommonJS)
+const {paymentService} = require('../utils/flexpay');
+console.log('Payment service imported:', paymentService);
 /**
  * Socket pour la gestion des transactions financières des étudiants
  */
-class TransactionSocket extends EtudiantSocket {
+class TransactionSocket extends Socket {
     /**
      * Initialisation des événements de transactions
      */
     init() {
+        console.log('TransactionSocket.init() appelé');
         // Appel de la méthode d'initialisation du parent
         super.init();
         
         this.io.on('connection', (socket) => {
+            console.log('Nouvelle connexion détectée dans TransactionSocket');
             // Événements de gestion des transactions
-            socket.on('transaction:get-all', () => 
-                this.requireAuth(socket, () => this.handleGetTransactions(socket)));
+            socket.on('transaction:get-all', (data) => this.handleGetTransactions(socket, data));
             
-            socket.on('transaction:update-solde', (data) => 
-                this.requireAuth(socket, () => this.handleUpdateSolde(socket, data)));
+            socket.on('transaction:update-solde', (data) => this.handleUpdateSolde(socket, data));
             
             // Gestion des frais académiques
-            socket.on('transaction:get-frais-acad', () => 
-                this.requireAuth(socket, () => this.handleGetFraisAcad(socket)));
+            socket.on('transaction:get-frais-acad', () => this.handleGetFraisAcad(socket));
                 
-            socket.on('transaction:update-frais-acad', (data) => 
-                this.requireAuth(socket, () => this.handleUpdateFraisAcad(socket, data)));
+            socket.on('transaction:update-frais-acad', (data) => this.handleUpdateFraisAcad(socket, data));
                 
-            socket.on('transaction:payer-frais-acad', (data) => 
-                this.requireAuth(socket, () => this.handlePayerFraisAcad(socket, data)));
+            socket.on('transaction:payer-frais-acad', (data) => this.handlePayerFraisAcad(socket, data));
             
             // Gestion des commandes
-            socket.on('transaction:add-commande', (data) => 
-                this.requireAuth(socket, () => this.handleAddCommande(socket, data)));
+            socket.on('transaction:add-commande', (data) => this.handleAddCommande(socket, data));
             
-            socket.on('transaction:update-commande', (data) => 
-                this.requireAuth(socket, () => this.handleUpdateCommande(socket, data)));
+            socket.on('transaction:update-commande', (data) => this.handleUpdateCommande(socket, data));
             
-            socket.on('transaction:delete-commande', (data) => 
-                this.requireAuth(socket, () => this.handleDeleteCommande(socket, data)));
+            socket.on('transaction:delete-commande', (data) => this.handleDeleteCommande(socket, data));
             
             // Gestion des recharges
-            socket.on('transaction:add-recharge', (data) => 
-                this.requireAuth(socket, () => this.handleAddRecharge(socket, data)));
+            socket.on('transaction:add-recharge', (data) => this.handleAddRecharge(socket, data));
             
-            socket.on('transaction:update-recharge', (data) => 
-                this.requireAuth(socket, () => this.handleUpdateRecharge(socket, data)));
+            socket.on('transaction:update-recharge', (data) => this.handleUpdateRecharge(socket, data));
             
-            socket.on('transaction:delete-recharge', (data) => 
-                this.requireAuth(socket, () => this.handleDeleteRecharge(socket, data)));
+            socket.on('transaction:delete-recharge', (data) => this.handleDeleteRecharge(socket, data));
+            
+            socket.on('transaction:check-payment-status', (data) => this.checkPaymentStatus(socket, data.etudiantId, data.orderNumber));
         });
     }
-
     /**
      * Récupère toutes les transactions d'un étudiant
      */
-    async handleGetTransactions(socket) {
+    async handleGetTransactions(socket, data) {
+        const { etudiantId } = data;
+        console.log('handleGetTransactions appelé', data);
+        console.log('Handling get transactions for socket:', socket.id);
+        console.log('Socket etudiantId:', etudiantId);
         try {
-            const etudiantId = socket.etudiantId;
             
             const transactions = await this.getFromCache(
                 `transaction:${etudiantId}:all`, 
@@ -85,7 +82,7 @@ class TransactionSocket extends EtudiantSocket {
                 }
             );
             
-            this.emitSuccess(socket, 'transaction:all', transactions);
+            this.emitSuccess(socket, 'transaction:get-all', transactions);
             
         } catch (error) {
             this.handleError(error, socket, 'transaction:get-all');
@@ -318,61 +315,223 @@ class TransactionSocket extends EtudiantSocket {
     }
 
     /**
-     * Ajoute une recharge à la transaction d'un étudiant
+     * Ajoute une recharge à la transaction d'un étudiant et initie le processus de paiement
      */
     async handleAddRecharge(socket, data) {
+        console.log('handleAddRecharge appelé', data);
+        data.montant = data.amount
         try {
-            const etudiantId = socket.etudiantId;
-            
+            // Validation des données requises
             if (!data || !data.montant || isNaN(data.montant) || data.montant <= 0) {
-                throw new Error('Données de recharge invalides');
+                throw new Error('Montant de recharge invalide');
+            }
+
+            if (!data.phone) {
+                throw new Error('Numéro de téléphone requis pour la recharge');
+            }
+
+            // Utiliser l'ID de l'étudiant depuis les données ou le socket
+            const etudiantId = data.etudiantId || socket.etudiantId;
+            
+            if (!etudiantId) {
+                throw new Error('ID étudiant non spécifié');
+            }
+
+            // Créer une référence unique pour cette transaction
+            const reference = data.ref || `RECH-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
+            
+            // Préparer les données pour le service de paiement
+            const paymentData = {
+                phone: data.phone,
+                amount: data.montant,
+                ref: reference,
+                currency: data.currency || 'CDF',
+                description: data.description || `Recharge de compte étudiant INBTP`
+            };
+            
+            // Initier le paiement via le service de paiement
+            const paymentResponse = await paymentService.collect(paymentData);
+            
+            // Vérifier si l'initiation du paiement a réussi
+            if (!paymentResponse || !paymentResponse.orderNumber) {
+                throw new Error('Échec de l\'initiation du paiement: ' + (paymentResponse?.message || 'Erreur inconnue'));
             }
             
-            // Valeurs par défaut
-            const statut = data.statut || 'completed';
-            
-            // Générer une référence unique pour la recharge
-            const ref = `RECH-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
-            
-            const newRecharge = {
+            // Créer un objet de recharge selon le schéma exact
+            let newRecharge = {
                 montant: data.montant,
-                statut,
-                ref,
+                ref: paymentResponse.orderNumber,
+                statut: 'pending',
                 date_created: new Date()
             };
             
-            // Calculer l'augmentation du solde (seulement si la recharge est complétée)
-            const soldeIncrement = statut === 'completed' ? data.montant : 0;
-            
-            // Rechercher la transaction et ajouter la recharge
+            // Enregistrer la recharge avec statut pending dans la base de données
             let transaction = await Transaction.findOneAndUpdate(
                 { etudiantId },
-                { 
-                    $push: { recharges: newRecharge },
-                    $inc: { solde: soldeIncrement }
-                },
+                { $push: { recharges: newRecharge } },
                 { new: true, upsert: true }
             );
+            newRecharge.montant = `${data.montant} ${data.currency}`;
+            // Informer le client que la recharge a été initiée
+            this.emitSuccess(socket, 'transaction:recharge-initiated', {
+                recharge: newRecharge,
+                orderNumber: paymentResponse.orderNumber,
+                message: 'Paiement initialisé, veuillez confirmer sur votre téléphone'
+            });
             
-            // Mettre à jour également le solde de l'étudiant si la recharge est complétée
-            if (statut === 'completed') {
-                await Etudiant.findByIdAndUpdate(
-                    etudiantId,
-                    { $inc: { 'infoSec.solde': data.montant } }
-                );
+            // Démarrer le processus de vérification périodique du paiement
+            this.checkPaymentStatus(socket, etudiantId, paymentResponse.orderNumber);
+            
+        } catch (error) {
+            console.error('Erreur lors de l\'ajout d\'une recharge:', error);
+            this.handleError(error, socket, 'transaction:add-recharge');
+        }
+    }
+
+    /**
+     * Vérifie périodiquement le statut du paiement
+     */
+    async checkPaymentStatus(socket, etudiantId, orderNumber, attempts = 0) {
+        // Limiter à 20 tentatives (10 minutes à raison d'une vérification toutes les 30 secondes)
+        const maxAttempts = 10;
+        
+        try {
+            // Importer le service de paiement
+            const { paymentService } = require('../utils/flexpay');
+            
+            // Vérifier le statut du paiement
+            const paymentStatus = await paymentService.check({ orderNumber });
+            console.log(`Vérification de paiement #${attempts + 1} pour ${orderNumber}:`, paymentStatus.transaction.status == 1 ? 'Succès' : 'Échec');
+            
+            // Si le paiement est confirmé comme réussi
+            if (paymentStatus.transaction.status == 0) {
+                console.log('Paiement réussi pour la commande:', paymentStatus.transaction);
+                // Mettre à jour le statut de la recharge et le solde de l'étudiant
+                await this.completeRecharge(socket, etudiantId, orderNumber);
+                return;
+            } else {
+                // Si nous avons atteint le nombre maximal de tentatives, marquer comme expiré
+                if (attempts >= maxAttempts) {
+                    await this.failRecharge(socket, etudiantId, orderNumber, 'failed');
+                    return;
+                }
             }
+            
+            
+            // Programmer une nouvelle vérification dans 30 secondes
+            setTimeout(() => {
+                this.checkPaymentStatus(socket, etudiantId, orderNumber, attempts + 1);
+            }, 5); // 30 secondes
+            
+        } catch (error) {
+            console.error(`Erreur lors de la vérification du paiement ${orderNumber}:`, error);
+            
+            // En cas d'erreur de vérification, continuer à essayer si nous n'avons pas atteint la limite
+            if (attempts < maxAttempts) {
+                setTimeout(() => {
+                    this.checkPaymentStatus(socket, etudiantId, orderNumber, attempts + 1);
+                }, 30000);
+            } else {
+                await this.failRecharge(socket, etudiantId, orderNumber, 'failed');
+            }
+        }
+    }
+
+    /**
+     * Finalise une recharge réussie
+     */
+    async completeRecharge(socket, etudiantId, orderNumber) {
+        console.log('completeRecharge appelé', etudiantId, orderNumber);
+        try {
+            // Trouver la transaction et la recharge spécifique
+            const transaction = await Transaction.findOne({ 
+                etudiantId,
+                'recharges.ref': orderNumber
+            });
+            console.log('Transaction trouvée:', transaction);
+            if (!transaction) {
+                console.error(`Recharge introuvable pour l'ordre ${orderNumber}`);
+                return;
+            }
+            
+            // Trouver l'index de la recharge dans le tableau
+            const rechargeIndex = transaction.recharges.findIndex(r => r.ref === orderNumber);
+            if (rechargeIndex === -1) return;
+            
+            const recharge = transaction.recharges[rechargeIndex];
+            
+            // Si la recharge est déjà complétée, ne rien faire
+            if (recharge.statut === 'completed') return;
+            
+            // Mettre à jour le statut de la recharge
+            await Transaction.updateOne(
+                { etudiantId, 'recharges.ref': orderNumber },
+                { 
+                    $set: { 'recharges.$.statut': 'completed' },
+                    $inc: { solde: recharge.montant }
+                }
+            );
+            
+            // Mettre à jour également le solde de l'étudiant
+            await Etudiant.findByIdAndUpdate(
+                etudiantId,
+                { $inc: { 'infoSec.solde': recharge.montant } }
+            );
             
             // Invalider les caches concernés
             await this.invalidateCache(`transaction:${etudiantId}:all`);
             await this.invalidateCache(`etudiant:${etudiantId}:profile`);
-            
-            this.emitSuccess(socket, 'transaction:recharge-added', {
-                recharge: newRecharge,
-                solde: transaction.solde
+            // Notifier le client que le paiement est terminé
+            this.emitSuccess(socket, 'transaction:recharge-completed', {
+                recharge: {
+                    ...recharge,
+                    statut: 'completed'
+                },
+                message: 'Votre compte a été rechargé avec succès!'
             });
             
         } catch (error) {
-            this.handleError(error, socket, 'transaction:add-recharge');
+            console.error('Erreur lors de la finalisation de la recharge:', error);
+        }
+    }
+
+    /**
+     * Marque une recharge comme échouée
+     */
+    async failRecharge(socket, etudiantId, orderNumber, status) {
+        try {
+            // Mettre à jour le statut de la recharge
+            await Transaction.updateOne(
+                { etudiantId, 'recharges.ref': orderNumber },
+                { $set: { 'recharges.$.statut': status === 'cancelled' ? 'canceled' : 'failed' } }
+            );
+            
+            // Récupérer la transaction mise à jour
+            const updatedTransaction = await Transaction.findOne({ 
+                etudiantId,
+                'recharges.ref': orderNumber
+            });
+            
+            const recharge = updatedTransaction?.recharges.find(r => r.ref === orderNumber);
+            
+            // Invalider les caches concernés
+            await this.invalidateCache(`transaction:${etudiantId}:all`);
+            
+            // Préparer un message approprié selon le statut
+            let message = 'Échec de la recharge';
+            if (status === 'cancelled' || status === 'canceled') message = 'La recharge a été annulée';
+            if (status === 'expired') message = 'La session de paiement a expiré';
+            if (status === 'failed') message = 'Le paiement a échoué';
+            if (status === 'rejected') message = 'Le paiement a été rejeté';
+            
+            // Notifier le client que le paiement a échoué
+            this.emitSuccess(socket, 'transaction:recharge-failed', {
+                recharge: recharge || { ref: orderNumber, statut: status === 'cancelled' ? 'canceled' : 'failed' },
+                message
+            });
+            
+        } catch (error) {
+            console.error('Erreur lors du marquage de la recharge comme échouée:', error);
         }
     }
 

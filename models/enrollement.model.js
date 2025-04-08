@@ -1,4 +1,5 @@
-import mongoose, { Schema, Document } from 'mongoose';
+const mongoose = require('mongoose');
+const { Schema } = mongoose;
 
 const EnrollmentSchema = new Schema({
   date_created: { 
@@ -29,7 +30,7 @@ const EnrollmentSchema = new Schema({
   },
   cours: [{ 
     type: Schema.Types.ObjectId, 
-    ref: 'Cours' 
+    ref: 'Matiere' 
   }]
 }, {
   timestamps: true,
@@ -41,5 +42,6 @@ EnrollmentSchema.index({ promotionId: 1 });
 EnrollmentSchema.index({ date_created: 1 });
 EnrollmentSchema.index({ date_fin: 1 });
 
-// Export du modèle
-export const Enrollment = mongoose.model('Enrollment', EnrollmentSchema);
+// Fix model export
+const Enrollment = mongoose.model('Enrollment', EnrollmentSchema);
+module.exports = Enrollment;

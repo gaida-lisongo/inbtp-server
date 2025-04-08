@@ -11,7 +11,7 @@ class PromotionController {
 
             // Validation des champs requis
             if (!mention || !sectionId || !niveau) {
-                throw new Error("La désignation, la section et le niveau sont requis");
+                throw new Error("La mention, la section et le niveau sont requis");
             }
 
             const nouvellePromotion = new Promotion(promotionData);
@@ -43,6 +43,18 @@ class PromotionController {
         }
     }
 
+    // Obtenir une promotion par ID de la section
+    async getPromotionBySectionId(sectionId) {
+        try {
+            return await Promotion.find({ sectionId })
+                .populate('sectionId', 'titre')
+                .populate('unites.matieres', 'designation');
+        } catch (error) {
+            throw error;
+        }
+    
+    }
+    
     // Mettre à jour une promotion
     async updatePromotion(id, updateData) {
         try {

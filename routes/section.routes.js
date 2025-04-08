@@ -198,4 +198,24 @@ router.delete('/:id/bureaux/:bureauId', async (req, res) => {
     }
 });
 
+// Vérifier les sections où un agent est membre du staff
+router.get('/agent/:agentId/sections', async (req, res) => {
+    try {
+        console.log("Agent ID:", req.params.agentId);
+        const sections = await sectionController.getAgentSections(req.params.agentId);
+        res.json({
+            success: true,
+            data: sections,
+            message: sections.length > 0 
+                ? `L'agent est membre de ${sections.length} section(s)` 
+                : "L'agent n'est membre d'aucune section"
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            error: error.message
+        });
+    }
+});
+
 module.exports = router;

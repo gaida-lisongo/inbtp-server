@@ -1,77 +1,46 @@
 const memjs = require('memjs');
 require('dotenv').config();
 
-class CacheManager {
-  constructor() {
-    // Connect to Memcachier using environment variables
-    this.client = memjs.Client.create(`${process.env.MEMCACHE_HOST}:${process.env.MEMCACHE_PORT}`, {
-      username: process.env.MEMCACHE_USERNAME,
-      password: process.env.MEMCACHE_PASSWORD,
-      expires: 600, // Default expiration in seconds (10 minutes)
-      failover: true,
-      retries: 2
-    });
-    
-    console.log(`Connected to Memcachier at ${process.env.MEMCACHE_HOST}:${process.env.MEMCACHE_PORT}`);
-  }
+// Parse port as integer and provide fallback
+const port = parseInt(process.env.MEMCACHE_PORT) || 11211;
 
-  // Set a value in cache with optional expiration (in seconds)
-  async set(key, value, expiration = 600) {
-    try {
-      const valueString = typeof value === 'object' ? JSON.stringify(value) : String(value);
-      await this.client.set(key, valueString, { expires: expiration });
-      return true;
-    } catch (error) {
-      console.error(`Error setting cache for key ${key}:`, error);
-      return false;
+const client = memjs.Client.create(`${process.env.MEMCACHE_HOST}:${port}`, {
+    username: process.env.MEMCACHE_USERNAME,
+    password: process.env.MEMCACHE_PASSWORD,
+    timeout: 1,
+    retries: 2
+});
+
+const cache = {
+    async get(key) {
+        try {
+            const { value } = await client.get(key);
+            return value ? JSON.parse(value.toString()) : null;
+        } catch (error) {
+            console.error('Cache get error:', error);
+            return null; // Fallback to no cache on error
+        }
+    },
+
+    async set(key, value, expires = 3600) {
+        try {
+            await client.set(key, JSON.stringify(value), { expires });
+            return true;
+        } catch (error) {
+            console.error('Cache set error:', error);
+            return false; // Indicate cache set failed
+        }
+    },
+
+    async delete(key) {
+        try {
+            await client.delete(key);
+            return true;
+        } catch (error) {
+            console.error('Cache delete error:', error);
+            return false;
+        }
     }
-  }
+};
 
-  // Get a value from cache
-  async get(key) {
-    try {
-      const { value } = await this.client.get(key);
-      
-      if (!value) return null;
-      
-      // Try parsing as JSON, fall back to string if it fails
-      try {
-        return JSON.parse(value.toString('utf-8'));
-      } catch (e) {
-        return value.toString('utf-8');
-      }
-    } catch (error) {
-      console.error(`Error getting cache for key ${key}:`, error);
-      return null;
-    }
-  }
-
-  // Delete a value from cache
-  async delete(key) {
-    try {
-      await this.client.delete(key);
-      return true;
-    } catch (error) {
-      console.error(`Error deleting cache for key ${key}:`, error);
-      return false;
-    }
-  }
-
-  // Flush the entire cache
-  async flush() {
-    try {
-      await this.client.flush();
-      return true;
-    } catch (error) {
-      console.error('Error flushing cache:', error);
-      return false;
-    }
-  }
-
-  // Close the connection
-  close() {
-    this.client.close();
-  }
-}
-
-module.exports = new CacheManager();
+module.exports = cache;

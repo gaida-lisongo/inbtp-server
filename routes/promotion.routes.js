@@ -58,6 +58,31 @@ router.get('/:id', async (req, res) => {
     }
 });
 
+
+// Obtenir une promotion par ID de section
+router.get('/section/:sectionId', async (req, res) => {
+    try {
+        const promotions = await promotionController.getPromotionBySectionId(req.params.sectionId);
+        if (!promotions || promotions.length === 0) {
+            return res.status(404).json({
+                success: false,
+                error: "Aucune promotion trouvée pour cette section"
+            });
+        }
+        res.json({
+            success: true,
+            count: promotions.length,
+            data: promotions
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            error: error.message
+        });
+    }
+});
+
+
 // Mettre à jour une promotion
 router.put('/:id', async (req, res) => {
     try {
@@ -143,6 +168,7 @@ router.get('/:id/unites', async (req, res) => {
 // Modifier une unité
 router.put('/:id/unites/:uniteId', async (req, res) => {
     try {
+        console.log("data", req.body);
         const promotion = await promotionController.updateUnite(
             req.params.id,
             req.params.uniteId,
@@ -205,5 +231,7 @@ router.post('/:id/unites/import', async (req, res) => {
         });
     }
 });
+
+
 
 module.exports = router;

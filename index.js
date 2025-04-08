@@ -4,15 +4,22 @@ const { Server } = require('socket.io');
 const http = require('http');
 const database = require('./config/database');
 const cache = require('./utils/cache');
-const Annee = require('./models/annee.model');
+const cors = require('cors');
 require('dotenv').config();
 
 // Importation des routes
 const routes = require('./routes');
+const descripteurRoutes = require('./routes/descripteur.routes');
 
 const app = express();
 const server = http.createServer(app);
 
+const corsOptions = {
+  origin: '*',
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true
+};
 // Configuration des CORS pour Socket.IO
 const io = new Server(server, {
   cors: {
@@ -21,6 +28,7 @@ const io = new Server(server, {
     credentials: true
   }
 });
+app.use(cors(corsOptions));
 
 // Initialisation des sockets
 const Sockets = require('./sockets')(io);
@@ -39,6 +47,7 @@ app.use((req, res, next) => {
 
 // Configuration des routes
 app.use('/api', routes);
+app.use('/api/descripteurs', descripteurRoutes);
 
 // Route de base
 app.get('/', (req, res) => {

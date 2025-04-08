@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 const Schema = mongoose.Schema;
 
+
 const AgentSchema = new Schema({
     solde: {
         type: Number

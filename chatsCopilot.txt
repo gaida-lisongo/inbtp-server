@@ -1,0 +1,18 @@
+Nous devons ajouter un schéma Transaction, cette dernière permet de rettracer toutes les transactions financière effectué par un étudiants et donc sa doit avoir la forme
+Transactions = [{
+    etudiantId: ObjectId,
+    solde: number,
+    fraisAcad: number,
+    commandes: [{
+        date_created: date,
+        product: string,
+        montant: number,
+        ref: string
+    }],
+    recharges: [{
+        date_created: date
+        statut: string
+        montant: number
+        ref: string
+    }]
+}]
