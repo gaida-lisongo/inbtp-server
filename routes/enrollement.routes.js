@@ -8,15 +8,15 @@ router.get('/promotion/:promotionId', async (req, res) => {
     try {
         const cacheKey = `enrollements:promotion:${req.params.promotionId}`;
         const cached = await cache.get(cacheKey);
+        console.log("Cache miss for enrollments, fetching from DB.", req.params.promotionId);
         
-        if (cached.length > 0) {
+        if (cached && cached.length > 0) {
             return res.json({
                 success: true,
                 data: cached,
                 fromCache: true
             });
         }
-
         const enrollments = await Enrollment.find({ promotionId: req.params.promotionId })
             .populate('cours')
             .populate('promotionId', 'code designation')

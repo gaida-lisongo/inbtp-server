@@ -11,6 +11,7 @@ const descripteurRoutes = require('./descripteur.routes');
 const juryRoutes = require('./jury.routes');
 const enrollementRoutes = require('./enrollement.routes');
 const titulaireRoutes = require('./titulaire.routes');
+const resolutionRoutes = require('./resolution.routes');
 
 // Routes
 router.use('/annees', anneeRoutes);
@@ -24,5 +25,6 @@ router.use('/descripteurs', descripteurRoutes);
 router.use('/jurys', juryRoutes);
 router.use('/enrollements', enrollementRoutes);
 router.use('/titulaire', titulaireRoutes);
+router.use('/resolution', resolutionRoutes);
 
 module.exports = router;

@@ -4,12 +4,6 @@ const Schema = mongoose.Schema;
 const QuestionSchema = new Schema({
     enonce: {
         type: String,
-        required: true
-    },
-    type: {
-        type: String,
-        enum: ['QCM', 'LIBRE', 'FICHIER'],
-        required: true
     },
     choix: [{
         type: String
@@ -39,6 +33,10 @@ const TravailSchema = new Schema({
         ref: 'Matiere',
         required: true
     },
+    type: {
+        type: String,
+        enum: ['QCM', 'REPONSE', 'QUESTION'],
+    },
     date_created: {
         type: Date,
         default: Date.now
@@ -49,7 +47,7 @@ const TravailSchema = new Schema({
     },
     auteurId: {
         type: Schema.Types.ObjectId,
-        ref: 'Etudiant',
+        ref: 'Agent',
         required: true
     },
     montant: {
@@ -75,9 +73,12 @@ TravailSchema.index({ date_created: -1 });
 
 // Validation personnalisée pour les questions
 TravailSchema.path('questions').validate(function(questions) {
-    if (questions.length === 0) {
-        return false;
+    // Allow empty questions array initially
+    if (!questions || questions.length === 0) {
+        return true;
     }
+    
+    // Validate questions if they exist
     return questions.every(question => {
         if (question.type === 'QCM') {
             return Array.isArray(question.choix) && question.choix.length > 0;

@@ -19,12 +19,12 @@ const NoteSchema = new Schema({
     noteAnnuel: {
         type: Number,
         min: 0,
-        max: 20
+        max: 10
     },
     noteExamen: {
         type: Number,
         min: 0,
-        max: 20
+        max: 10
     },
     noteRattrapage: {
         type: Number,
@@ -33,12 +33,12 @@ const NoteSchema = new Schema({
     },
     createdBy: {
         type: Schema.Types.ObjectId,
-        ref: 'Etudiant',
+        ref: 'Agent',
         required: true
     },
     updatedBy: {
         type: Schema.Types.ObjectId,
-        ref: 'Etudiant'
+        ref: 'Agent'
     }
 }, {
     timestamps: true,
