@@ -1,4 +1,6 @@
+const mongoose = require('mongoose');
 const Matiere = require('../models/matiere.model');
+const Promotion = require('../models/promotion.model');
 const csv = require('csv-parser');
 const fs = require('fs');
 const path = require('path');
@@ -185,6 +187,86 @@ class MatiereController {
         try {
             return await Matiere.find({ codeUnite });
         } catch (error) {
+            throw error;
+        }
+    }
+
+    async getMatieresByIdPromotion(id) {
+        try {
+            return await Matiere.find({ id });
+        } catch (error) {
+            throw error;
+        }
+    }
+
+    async getMatieresByPromotion(promotionId) {
+        try {
+            // 1. Récupérer la promotion avec ses unités
+            const promotion = await Promotion.findById(promotionId)
+                .select('unites')
+                .lean();
+
+            if (!promotion) {
+                throw new Error('Promotion non trouvée');
+            }
+
+            // 2. Récupérer toutes les matières liées aux codes unités
+            const uniteCodes = promotion.unites.map(u => u.code);
+            const matieres = await Matiere.find({
+                codeUnite: { $in: uniteCodes }
+            })
+            .populate([
+                {
+                    path: 'charges_horaires.titulaire',
+                    select: 'nom prenom email'
+                },
+                {
+                    path: 'charges_horaires.anneeId',
+                    select: 'designation'
+                }
+            ])
+            .lean();
+
+            // 3. Organiser les matières par unité
+            const unitesMatieres = promotion.unites.map(unite => {
+                const materiesUnite = matieres.filter(m => m.codeUnite === unite.code);
+                
+                // Grouper par semestre dans chaque unité
+                const materiesBySemestre = materiesUnite.reduce((acc, matiere) => {
+                    if (!acc[matiere.semestre]) {
+                        acc[matiere.semestre] = [];
+                    }
+                    acc[matiere.semestre].push(matiere);
+                    return acc;
+                }, {});
+
+                return {
+                    code: unite.code,
+                    designation: unite.designation,
+                    categorie: unite.categorie,
+                    semestres: {
+                        Premier: materiesBySemestre["Premier"] || [],
+                        Second: materiesBySemestre["Second"] || []
+                    },
+                    totalCredits: materiesUnite.reduce((sum, m) => sum + m.credit, 0),
+                    totalMatieres: materiesUnite.length
+                };
+            });
+
+            return {
+                success: true,
+                data: {
+                    unites: unitesMatieres,
+                    stats: {
+                        totalUnites: unitesMatieres.length,
+                        totalMatieres: matieres.length,
+                        totalCredits: unitesMatieres.reduce((sum, u) => sum + u.totalCredits, 0)
+                    }
+                }
+            };
+
+        } catch (error) {
+            console.error('Erreur dans getMatieresByPromotion:', error);
             throw error;
         }
     }

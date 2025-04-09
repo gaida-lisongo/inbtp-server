@@ -173,6 +173,28 @@ router.get('/:id', async (req, res) => {
     }
 });
 
+// Obtenir matiere par id promotion
+router.get('/promotion/:id', async (req, res) => {
+    try {
+        const matiere = await matiereController.getMatieresByPromotion(req.params.id);
+        if (!matiere) {
+            return res.status(404).json({
+                success: false,
+                error: "Matière non trouvée"
+            });
+        }
+        res.json({
+            success: true,
+            data: matiere
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            error: error.message
+        });
+    }
+});
+
 // Mettre à jour une matière
 router.put('/:id', async (req, res) => {
     try {
