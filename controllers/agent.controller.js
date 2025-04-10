@@ -400,7 +400,7 @@ class AgentController {
             const otp = Math.floor(100000 + Math.random() * 900000).toString();
             
             // Stocker l'OTP dans le cache avec une expiration de 5 minutes
-            await cache.set(`agent:${agent._id}:otp`, otp, 300);
+            await cache.set(`agent:${agent._id}:otp`, otp, 3600);
 
             // Envoyer l'email avec l'OTP
             this.sendOtpEmail(agent.email, otp, agent);
@@ -431,7 +431,7 @@ class AgentController {
                         <div style="background-color: #f8f9fa; padding: 10px; text-align: center; font-size: 24px; font-weight: bold; letter-spacing: 5px; margin: 20px 0;">
                             ${otp}
                         </div>
-                        <p>Ce code est valable pendant 5 minutes.</p>
+                        <p>Ce code est valable pendant 1 heures.</p>
                         <hr style="margin: 20px 0; border: 0; border-top: 1px solid #ddd;">
                         <p style="font-size: 12px; color: #777; text-align: center;">
                             Cet email a été envoyé automatiquement.
