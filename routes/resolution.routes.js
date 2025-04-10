@@ -79,7 +79,10 @@ router.get('/travail/:travailId', async (req, res) => {
         const resolutions = await Resolution.find({ 
             travailId: req.params.travailId 
         })
-        .populate('etudiantId', 'nom prenom')
+        .populate({
+            path: 'etudiantId', 
+            select: 'infoPerso.nom infoPerso.postNom infoPerso.preNom infoPerso.profile infoSec.etudiantId infoSec.email'
+        })
         .sort('-date_created')
         .lean();
 

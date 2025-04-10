@@ -144,6 +144,36 @@ router.post('/travaux', async (req, res) => {
     }
 });
 
+//Details d'un travail
+router.get('/travaux/:id', async (req, res) => {
+    console.log('Fetching work details for ID:', req.params.id);
+    try {
+        const travail = await Travail.findById(req.params.id)
+            .populate('matiereId', 'designation code')
+            .populate('auteurId', 'nom prenom')
+            .lean();
+
+        console.log('Fetching work details for ID:', travail);
+
+        if (!travail) {
+            return res.status(404).json({
+                success: false,
+                error: 'Travail non trouvé'
+            });
+        }
+        
+        res.json({
+            success: true,
+            data: travail
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            error: error.message
+        });
+    }
+});
+
 // Ajout de questions à un travail
 router.post('/travaux/:id/questions', async (req, res) => {
     try {
