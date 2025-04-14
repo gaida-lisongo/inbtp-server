@@ -1,5 +1,9 @@
 const express = require('express');
 const router = express.Router();
+const Matiere = require('../models/matiere.model');
+const Travail = require('../models/travaux.model');
+const Note = require('../models/note.model');
+const cache = require('../utils/cache');
 const matiereController = require('../controllers/matiere.controller');
 
 // Créer une matière
@@ -239,5 +243,22 @@ router.delete('/:id', async (req, res) => {
         });
     }
 });
+
+router.get('/travaux/:matiereId', async (req, res) => {
+    try {
+        const { matiereId } = req.params;
+        const travaux = await Travail.find({ matiereId })
+            .populate('matiereId')
+            .populate('promotionId')
+            .populate('anneeId')
+            .lean();
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            error: error.message
+        });
+        
+    }
+})
 
 module.exports = router;

@@ -9,15 +9,12 @@ const commandeSchema = new Schema({
     },
     product: {
         type: String,
-        required: true
     },
     montant: {
         type: Number,
-        required: true
     },
     ref: {
         type: String,
-        required: true
     }
 });
 
@@ -34,14 +31,22 @@ const rechargeSchema = new Schema({
     },
     montant: {
         type: Number,
-        required: true
     },
     ref: {
         type: String,
-        required: true
-    }
+    },
+    description: {
+        type: String,
+    },
+    title: {
+        type: String,
+    },
+    monnaie: {
+        type: String,
+        enum: ['FC', 'USD', 'EUR'],
+        default: 'FC'
+    },
 });
-
 // Main transaction schema
 const transactionSchema = new Schema({
     etudiantId: {
@@ -57,8 +62,14 @@ const transactionSchema = new Schema({
         type: Number,
         default: 0
     },
-    commandes: [commandeSchema],
-    recharges: [rechargeSchema]
+    commandes: {
+        type: [commandeSchema],
+        default: [] // Initialiser avec un tableau vide
+    },
+    recharges: {
+        type: [rechargeSchema],
+        default: [] // Initialiser avec un tableau vide
+    }
 }, { 
     timestamps: true,
     toJSON: { virtuals: true },
@@ -67,11 +78,16 @@ const transactionSchema = new Schema({
 
 // Virtual to calculate total amount spent
 transactionSchema.virtual('totalDepense').get(function() {
+    if (!this.commandes || !Array.isArray(this.commandes)) {
+        return 0;
+    }
     return this.commandes.reduce((sum, commande) => sum + commande.montant, 0);
 });
 
-// Virtual to calculate total amount recharged
 transactionSchema.virtual('totalRecharge').get(function() {
+    if (!this.recharges || !Array.isArray(this.recharges)) {
+        return 0;
+    }
     return this.recharges
         .filter(recharge => recharge.statut === 'completed')
         .reduce((sum, recharge) => sum + recharge.montant, 0);

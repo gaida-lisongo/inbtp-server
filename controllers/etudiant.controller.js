@@ -119,6 +119,12 @@ class EtudiantController {
             if (query.nom) {
                 filter['infoPerso.nom'] = new RegExp(query.nom, 'i');
             }
+            if (query.postnom) {
+                filter['infoPerso.postNom'] = new RegExp(query.postnom, 'i');
+            }
+            if (query.prenom) {
+                filter['infoPerso.preNom'] = new RegExp(query.prenom, 'i');
+            }
             if (query.sexe) {
                 filter['infoPerso.sexe'] = query.sexe;
             }
@@ -139,9 +145,27 @@ class EtudiantController {
                 filter['infoAcad.promotionId'] = query.promotionId;
             }
 
+            if (query.matricule) {
+                filter['infoSec.etudiantId'] = query.matricule;
+            }
+
+            if (query.opt) {
+                filter['infoAcad.opt'] = query.opt;
+            }
+
+            if (query.email) {
+                filter['infoSec.email'] = new RegExp(query.email, 'i');
+            }
+
+            if (query.telephone) {
+                filter['infoSec.telephone'] = new RegExp(query.telephone, 'i');
+            }
+
+            console.log("Filter for listing students:", filter);
             return await Etudiant.find(filter)
                 .populate('infoAcad.promotionId')
                 .populate('infoAcad.anneeId');
+                
         } catch (error) {
             throw error;
         }
