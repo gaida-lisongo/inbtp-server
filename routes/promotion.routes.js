@@ -232,6 +232,21 @@ router.post('/:id/unites/import', async (req, res) => {
     }
 });
 
+router.get('/travaux/:id', async (req, res) => {
+    try {
+        const travaux = await promotionController.getTravailsByPromotion(req.params.id);
+        res.json({
+            success: true,
+            count: travaux.length,
+            data: travaux
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            error: error.message
+        });
+    }
+});
 
 
 module.exports = router;

@@ -49,14 +49,20 @@ const paymentService = {
     try {
       console.log(`Vérification du statut pour la commande: ${orderNumber}`);
       
-      const response = await fetch(`${FLEXPAY_API}/check/${orderNumber}`, {
+      const request = await fetch(`${FLEXPAY_API}/check/${orderNumber}`, {
         headers: API_HEADERS
       });
       
-      const data = await response.json();
+      const data = await request.json();
       console.log(`Statut de la commande ${orderNumber}:`, data);
+      const {message, transaction } = data;
+
+      const response = {
+        ...transaction,
+        message: message
+      };
       
-      return data;
+      return response;
     } catch (error) {
       console.error(`Erreur lors de la vérification du statut de la commande ${orderNumber}:`, error);
       throw error;

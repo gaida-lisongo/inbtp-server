@@ -1,4 +1,6 @@
 const Promotion = require('../models/promotion.model');
+const Matiere = require('../models/matiere.model');
+const Travail = require('../models/travaux.model');
 const csv = require('csv-parser');
 const fs = require('fs');
 const path = require('path');
@@ -238,6 +240,97 @@ class PromotionController {
             });
         } catch (error) {
             throw error;
+        }
+    }
+
+    // Fonction pour récupérer tous les travaux d'une promotion
+    async getTravailsByPromotion(promotionId) {
+        try {
+            // 1. Récupérer la promotion avec ses unités
+            const promotion = await Promotion.findById(promotionId)
+                .select('unites')
+                .lean();
+            
+            if (!promotion) {
+                return {
+                    success: false,
+                    error: 'Promotion non trouvée'
+                };
+            }
+            
+            // 2. Extraire les codes d'unités de la promotion
+            const codeUnites = promotion.unites.map(unite => unite.code);
+            
+            // 3. Trouver toutes les matières qui correspondent à ces codes d'unités
+            const matieres = await Matiere.find({
+                codeUnite: { $in: codeUnites }
+            })
+            .select('_id designation code codeUnite')
+            .lean();
+            
+            if (!matieres.length) {
+                return {
+                    success: true,
+                    message: 'Aucune matière trouvée pour cette promotion',
+                    data: []
+                };
+            }
+            
+            // 4. Récupérer les IDs des matières
+            const matiereIds = matieres.map(matiere => matiere._id);
+            
+            // 5. Trouver tous les travaux liés à ces matières
+            const travaux = await Travail.find({
+                matiereId: { $in: matiereIds }
+            })
+            .populate({
+                path: 'matiereId',
+                select: 'designation code codeUnite'
+            })
+            .populate('auteurId')
+            .sort('-date_created')
+            .lean();
+            
+            // 6. Organiser les travaux par unité d'enseignement
+            const travauxParUnite = {};
+            
+            travaux.forEach(travail => {
+                const codeUnite = travail.matiereId.codeUnite;
+                if (!travauxParUnite[codeUnite]) {
+                    // Trouver les informations de l'unité
+                    const unite = promotion.unites.find(u => u.code === codeUnite);
+                    travauxParUnite[codeUnite] = {
+                        code: codeUnite,
+                        designation: unite ? unite.designation : 'Inconnue',
+                        categorie: unite ? unite.categorie : 'Inconnue',
+                        travaux: []
+                    };
+                }
+                
+                travauxParUnite[codeUnite].travaux.push({
+                    ...travail,
+                    reste: travail.date_fin ? Math.max(0, Math.ceil((new Date(travail.date_fin) - new Date()) / (1000 * 60 * 60 * 24))) : 0
+                });
+            });
+            
+            return {
+                success: true,
+                count: travaux.length,
+                data: {
+                    promotion: {
+                        _id: promotionId,
+                        unites: Object.values(travauxParUnite)
+                    },
+                    travaux: travaux
+                }
+            };
+            
+        } catch (error) {
+            console.error('Erreur lors de la récupération des travaux:', error);
+            return {
+                success: false,
+                error: error.message
+            };
         }
     }
 }

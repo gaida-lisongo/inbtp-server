@@ -3,6 +3,7 @@ const router = express.Router();
 const etudiantController = require('../controllers/etudiant.controller');
 const Etudiant = require('../models/etudiant.model');
 const Transaction = require('../models/transaction.model');
+const Travail = require('../models/travaux.model');
 const mail = require('../utils/mail');
 const cache = require('../utils/cache');
 const jwt = require('jsonwebtoken');
@@ -79,75 +80,6 @@ router.get('/:id', async (req, res) => {
             data: etudiant
         });
     } catch (error) {
-        res.status(500).json({
-            success: false,
-            error: error.message
-        });
-    }
-});
-
-// Récupérer un étudiant avec toutes ses transactions
-router.get('/:etudiantId/transactions', async (req, res) => {
-    try {
-
-        // Récupérer les informations de l'étudiant
-        const etudiant = await Etudiant.findById(req.params.etudiantId)
-            .select('infoPerso.nom infoPerso.postNom infoPerso.preNom infoSec.etudiantId infoSec.email')
-            .lean();
-
-        if (!etudiant) {
-            return res.status(404).json({
-                success: false,
-                error: 'Étudiant non trouvé'
-            });
-        }
-
-        // Récupérer les transactions de l'étudiant
-        const transaction = await Transaction.findOne({ 
-            etudiantId: req.params.etudiantId 
-        })
-        .lean();
-
-        // Préparer la réponse avec les données combinées
-        const response = {
-            etudiant: {
-                _id: etudiant._id,
-                nom: etudiant.infoPerso.nom,
-                postNom: etudiant.infoPerso.postNom,
-                preNom: etudiant.infoPerso.preNom,
-                matricule: etudiant.infoSec.etudiantId,
-                email: etudiant.infoSec.email
-            },
-            finances: transaction ? {
-                solde: transaction.solde,
-                fraisAcad: transaction.fraisAcad,
-                totalDepense: transaction.commandes.reduce((sum, cmd) => sum + cmd.montant, 0),
-                totalRecharge: transaction.recharges
-                    .filter(r => r.statut === 'completed')
-                    .reduce((sum, r) => sum + r.montant, 0),
-                commandes: transaction.commandes.sort((a, b) => 
-                    new Date(b.date_created) - new Date(a.date_created)
-                ).slice(0, 10), // dernières 10 commandes
-                recharges: transaction.recharges.sort((a, b) => 
-                    new Date(b.date_created) - new Date(a.date_created)
-                ).slice(0, 10)  // dernières 10 recharges
-            } : {
-                solde: 0,
-                fraisAcad: 0,
-                totalDepense: 0,
-                totalRecharge: 0,
-                commandes: [],
-                recharges: []
-            }
-        };
-
-        res.json({
-            success: true,
-            data: response
-        });
-
-    } catch (error) {
-        console.error('Error fetching student transactions:', error);
         res.status(500).json({
             success: false,
             error: error.message
@@ -366,6 +298,75 @@ router.post('/otp', async (req, res) => {
     }
 });
 
+// Récupérer un étudiant avec toutes ses transactions
+router.get('/:etudiantId/transactions', async (req, res) => {
+    try {
+
+        // Récupérer les informations de l'étudiant
+        const etudiant = await Etudiant.findById(req.params.etudiantId)
+            .select('infoPerso.nom infoPerso.postNom infoPerso.preNom infoSec.etudiantId infoSec.email')
+            .lean();
+
+        if (!etudiant) {
+            return res.status(404).json({
+                success: false,
+                error: 'Étudiant non trouvé'
+            });
+        }
+
+        // Récupérer les transactions de l'étudiant
+        const transaction = await Transaction.findOne({ 
+            etudiantId: req.params.etudiantId 
+        })
+        .lean();
+
+        // Préparer la réponse avec les données combinées
+        const response = {
+            etudiant: {
+                _id: etudiant._id,
+                nom: etudiant.infoPerso.nom,
+                postNom: etudiant.infoPerso.postNom,
+                preNom: etudiant.infoPerso.preNom,
+                matricule: etudiant.infoSec.etudiantId,
+                email: etudiant.infoSec.email
+            },
+            finances: transaction ? {
+                solde: transaction.solde,
+                fraisAcad: transaction.fraisAcad,
+                totalDepense: transaction.commandes.reduce((sum, cmd) => sum + cmd.montant, 0),
+                totalRecharge: transaction.recharges
+                    .filter(r => r.statut === 'completed')
+                    .reduce((sum, r) => sum + r.montant, 0),
+                commandes: transaction.commandes.sort((a, b) => 
+                    new Date(b.date_created) - new Date(a.date_created)
+                ).slice(0, 10), // dernières 10 commandes
+                recharges: transaction.recharges.sort((a, b) => 
+                    new Date(b.date_created) - new Date(a.date_created)
+                ).slice(0, 10)  // dernières 10 recharges
+            } : {
+                solde: 0,
+                fraisAcad: 0,
+                totalDepense: 0,
+                totalRecharge: 0,
+                commandes: [],
+                recharges: []
+            }
+        };
+
+        res.json({
+            success: true,
+            data: response
+        });
+
+    } catch (error) {
+        console.error('Error fetching student transactions:', error);
+        res.status(500).json({
+            success: false,
+            error: error.message
+        });
+    }
+});
+
 router.post('/add-recharge/:etudiantId',
     async (req, res) => {
         const { etudiantId } = req.params;
@@ -417,5 +418,262 @@ router.post('/add-recharge/:etudiantId',
             });
         }
     }
-)
+);
+
+// Vérifier le statut de la recharge
+router.get('/recharge-status/:etudiantId/:ref', async (req, res) => {
+    const { etudiantId, ref } = req.params;
+    console.log("Checking recharge status for ref:", ref, "and student ID:", etudiantId);
+    try {
+        // vérifier si le statut de la recharge depuis l'API de paiement
+        const paymentStatus = await paymentService.check({orderNumber: ref});
+        console.log("Payment status response:", paymentStatus);
+        // Si le paiement est confirmé comme réussi
+        if (paymentStatus.status == 0) {
+            console.log('Paiement réussi pour la commande:', paymentStatus.transaction);
+            // Mettre à jour le statut de la recharge et le solde de l'étudiant
+            const newSolde = paymentStatus.currency === 'CDF' ? paymentStatus.amount : paymentStatus.amount * 2850; // Exemple de conversion, ajuster selon le taux de change réel
+            const transactions = await Transaction.findOneAndUpdate(
+                { etudiantId: etudiantId, 'recharges.ref': ref },
+                {
+                    $set: {
+                        'recharges.$.statut': 'completed'
+                    },
+                    $inc: {
+                        solde: newSolde,
+                    }
+                },
+                { new: true }
+            ).select('recharges solde');
+
+            console.log("Transaction après mise à jour:", transactions);
+            if (!transactions) {
+                return res.status(404).json({
+                    success: false,
+                    error: "Recharge non trouvée"
+                });
+            }
+
+            return res.json({
+                success: true,
+                message: "Recharge réussie",
+                data: transactions
+            });
+        } else {
+            // Si nous avons atteint le nombre maximal de tentatives, marquer comme expiré
+            return res.json({
+                success: false,
+                message: "Recharge échouée",
+                data: paymentStatus
+            });
+        }
+
+        // const transaction = await Transaction.findOne({
+        //     etudiantId: etudiantId,
+        //     'recharges.ref': ref
+        // }).select('recharges solde');
+
+        // if (!transaction) {
+        //     return res.status(404).json({
+        //         success: false,
+        //         error: "Recharge non trouvée"
+        //     });
+        // }
+
+        // const recharge = transaction.recharges.find(r => r.ref === ref);
+        // if (!recharge) {
+        //     return res.status(404).json({
+        //         success: false,
+        //         error: "Recharge non trouvée"
+        //     });
+        // }
+
+        // return res.json({
+        //     success: true,
+        //     message: "Statut de la recharge récupéré avec succès",
+        //     data: recharge
+        // });
+
+    } catch (error) {
+        console.error('Error fetching recharge status:', error);
+        res.status(500).json({
+            success: false,
+            error: error.message
+        });
+    }
+});
+
+router.delete('/recharge/:etudiantId/:ref', async (req, res) => {
+    const { etudiantId, ref } = req.params;
+    try {
+        // Supprimer la recharge de la base de données
+        const transaction = await Transaction.findOneAndUpdate(
+            { etudiantId: etudiantId },
+            { $pull: { recharges: { ref: ref } } },
+            { new: true }
+        ).select('recharges solde');
+
+        if (!transaction) {
+            return res.status(404).json({
+                success: false,
+                error: "Recharge non trouvée"
+            });
+        }
+
+        return res.json({
+            success: true,
+            message: "Recharge supprimée avec succès",
+            data: transaction
+        });
+
+    } catch (error) {
+        console.error('Error deleting recharge:', error);
+        res.status(500).json({
+            success: false,
+            error: error.message
+        });
+    }
+});
+
+//Débit solde étudiant pour commande
+router.put('/add-commande/:etudiantId', async (req, res) => {
+    const { etudiantId } = req.params;
+    const { 
+        montant, 
+        ref,
+        _id,
+        isTravail,
+        isBulletin,
+        isEnrollement,
+        anneeId,
+        description,
+        title
+    } = req.body;
+    
+    console.log("Débit solde étudiant pour commande:", etudiantId, "Montant:", montant, "Référence:", ref, "ID produit:", _id);
+    console.log("Détails de la commande:", req.body);
+    try {
+        // 1. Vérifier d'abord le solde actuel
+        const currentTransaction = await Transaction.findOne({ etudiantId })
+            .select('solde')
+            .lean();
+
+        if (!currentTransaction || currentTransaction.solde < montant) {
+            return res.status(400).json({
+                success: false,
+                error: "Solde insuffisant"
+            });
+        }
+
+        // 2. Créer l'objet commande selon le schéma
+        const newCommand = {
+            date_created: new Date(),
+            statut: 'completed',
+            montant,
+            ref: ref || `CMD-${Date.now()}-${etudiantId.substring(0, 6)}`,
+            description: description || (isTravail ? "Achat d'un travail" : isBulletin ? "Achat d'un bulletin" : "Achat d'un service"),
+            title: title || (isTravail ? "Travail" : isBulletin ? "Bulletin" : "Service"),
+            monnaie: 'FC',
+            product: _id // Assurer qu'on stocke une référence valide
+        };
+
+        // 3. Mise à jour atomique: débit du solde et ajout de la commande
+        const transaction = await Transaction.findOneAndUpdate(
+            { etudiantId },
+            { 
+                $inc: { solde: -montant },
+                $push: { 
+                    commandes: {
+                        $each: [newCommand],
+                        $position: 0 // Placer en première position pour un accès rapide
+                    }
+                }
+            },
+            { 
+                new: true,
+                select: 'commandes solde', // Limiter les champs retournés
+                runValidators: true // Valider les données selon le schéma
+            }
+        );
+
+        if (!transaction) {
+            return res.status(404).json({
+                success: false,
+                error: "Transaction non trouvée pour cet étudiant"
+            });
+        }
+
+        // 4. Invalidation du cache pour cet étudiant
+        await cache.delete(`etudiant:${etudiantId}:finances`);
+        
+        let updateResult = null;
+        const itemId = _id; // Utiliser l'ID fourni pour la mise à jour
+
+        // 5. Mise à jour des actifs de l'étudiant en fonction du type d'achat
+        if (anneeId && itemId) {
+            // Déterminer le type d'actif à mettre à jour
+            let updateField;
+            
+            if (isTravail) updateField = 'travaux';
+            else if (isBulletin) updateField = 'bulletins';
+            else if (isEnrollement) updateField = 'enrollments';
+            
+            if (updateField) {
+                // Mise à jour ciblée pour l'année académique spécifique
+                updateResult = await Etudiant.findOneAndUpdate(
+                    { 
+                        _id: etudiantId, 
+                        'infoAcad.anneeId': anneeId
+                    },
+                    { 
+                        $addToSet: { 
+                            [`infoAcad.$.actifs.${updateField}`]: itemId 
+                        } 
+                    },
+                    { new: true }
+                ).select('infoAcad');
+                
+                // Si aucune correspondance exacte pour l'année n'est trouvée
+                if (!updateResult) {
+                    // Fallback: tenter de mettre à jour via les méthodes du modèle
+                    const etudiant = await Etudiant.findById(etudiantId);
+                    if (etudiant) {
+                        etudiant.addActif(anneeId, updateField, itemId);
+                        await etudiant.save();
+                        updateResult = etudiant;
+                    }
+                }
+            }
+        }
+
+        // 6. Si achat de travail, mettre à jour le statut
+        if (isTravail && itemId) {
+            await Travail.findByIdAndUpdate(
+                itemId,
+                { $set: { statut: 'EN COURS' } }
+            );
+        }
+
+        return res.json({
+            success: true,
+            message: "Commande effectuée avec succès",
+            data: {
+                transaction: {
+                    _id: transaction._id,
+                    solde: transaction.solde,
+                    commande: newCommand
+                },
+                actifsMisAJour: updateResult ? true : false
+            }
+        });
+
+    } catch (error) {
+        console.error('Erreur lors du débit du solde étudiant:', error);
+        res.status(500).json({
+            success: false,
+            error: error.message
+        });
+    }
+});
+
 module.exports = router;

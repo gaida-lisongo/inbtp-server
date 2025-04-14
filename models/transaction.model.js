@@ -7,6 +7,22 @@ const commandeSchema = new Schema({
         type: Date,
         default: Date.now
     },
+    statut: {
+        type: String,
+        enum: ['pending', 'completed', 'failed', 'canceled'],
+        default: 'pending'
+    },
+    description: {
+        type: String,
+    },
+    title: {
+        type: String,
+    },
+    monnaie: {
+        type: String,
+        enum: ['FC', 'USD', 'EUR'],
+        default: 'FC'
+    },
     product: {
         type: String,
     },
