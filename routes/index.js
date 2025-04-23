@@ -12,6 +12,8 @@ const juryRoutes = require('./jury.routes');
 const enrollementRoutes = require('./enrollement.routes');
 const titulaireRoutes = require('./titulaire.routes');
 const resolutionRoutes = require('./resolution.routes');
+const appariteurRoutes = require('./appariteur.routes');
+const minervalRoutes = require('./minerval.routes'); // Nouvelle ligne
 
 // Routes
 router.use('/annees', anneeRoutes);
@@ -26,5 +28,7 @@ router.use('/jurys', juryRoutes);
 router.use('/enrollements', enrollementRoutes);
 router.use('/titulaire', titulaireRoutes);
 router.use('/resolution', resolutionRoutes);
+router.use('/appariteurs', appariteurRoutes);
+router.use('/minervals', minervalRoutes); // Nouvelle ligne
 
 module.exports = router;

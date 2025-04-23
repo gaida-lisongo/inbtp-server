@@ -8,6 +8,7 @@ const cache = require('../utils/cache');
 class EtudiantController {
     // Créer un étudiant
     async createEtudiant(etudiantData) {
+        console.log("Creating student with data:", etudiantData);
         try {
             const nouvelEtudiant = new Etudiant(etudiantData);
             return await nouvelEtudiant.save();
@@ -25,7 +26,7 @@ class EtudiantController {
             return new Promise((resolve, reject) => {
                 fs.createReadStream(filePath)
                     .pipe(csv({
-                        separator: ';',
+                        separator: ',',
                         mapHeaders: ({ header }) => header.trim(),
                         mapValues: ({ value }) => value.trim()
                     }))
@@ -57,6 +58,7 @@ class EtudiantController {
                                 actifs: {}
                             }]
                         };
+                        console.log("Data from CSV:", etudiant);
                         results.push(etudiant);
                     })
                     .on('end', async () => {

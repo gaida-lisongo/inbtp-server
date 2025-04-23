@@ -9,6 +9,80 @@ const cache = require('../utils/cache');
 const jwt = require('jsonwebtoken');
 const { paymentService } = require('../utils/flexpay');
 
+//Lire tous les etudiants
+router.get('/', async (req, res) => {
+    try {
+        const etudiants = await etudiantController.listEtudiants(req.body);
+        res.json({
+            success: true,
+            count: etudiants.length,
+            data: etudiants
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            error: error.message
+        });
+    }
+});
+
+// Lire tous les etudiants par ordre décroissant
+router.get('/desc', async (req, res) => {
+    try {
+        // Extraire les paramètres de pagination de la requête
+        const { page = 1, limit = 10, sortBy = 'createdAt', order = -1 } = req.query;
+        console.log("Query parameters:", req.query);
+        // Convertir en nombres
+        const pageNum = parseInt(page, 10);
+        const limitNum = parseInt(limit, 10);
+        
+        // Calculer le nombre d'éléments à sauter
+        const skip = (pageNum - 1) * limitNum;
+        
+        // Créer l'objet de tri (par défaut par date de création décroissante)
+        const sort = {};
+        sort[sortBy] = order;
+        
+        // Récupérer les étudiants avec pagination
+        const etudiants = await Etudiant.find({})
+            .sort(sort)
+            .skip(skip)
+            .limit(limitNum)
+            .lean();
+            
+        // Obtenir le nombre total d'étudiants pour la pagination
+        const total = await Etudiant.countDocuments({});
+        
+        // Calculer les métadonnées de pagination
+        const totalPages = Math.ceil(total / limitNum);
+        const hasNextPage = pageNum < totalPages;
+        const hasPrevPage = pageNum > 1;
+        
+        res.json({
+            success: true,
+            count: etudiants.length,
+            total: total,
+            pagination: {
+                page: pageNum,
+                limit: limitNum,
+                totalPages,
+                hasNextPage,
+                hasPrevPage,
+                nextPage: hasNextPage ? pageNum + 1 : null,
+                prevPage: hasPrevPage ? pageNum - 1 : null
+            },
+            data: etudiants
+        });
+        
+    } catch (error) {
+        console.error('Erreur lors de la récupération des étudiants:', error);
+        res.status(500).json({
+            success: false,
+            error: error.message
+        });
+    }
+});
+
 // Créer un étudiant
 router.post('/', async (req, res) => {
     try {
@@ -126,6 +200,8 @@ router.delete('/:id', async (req, res) => {
                 error: "Étudiant non trouvé"
             });
         }
+
+        console.log("Deleted student:", etudiant);
         res.json({
             success: true,
             message: "Étudiant supprimé avec succès"

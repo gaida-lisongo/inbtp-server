@@ -16,3 +16,33 @@ Transactions = [{
         ref: string
     }]
 }]
+===================================================================================================================================================================
+Donc voici ce que nous allons faire, nous allons crée un schema Appariteur, qui gère les étudiants  et les enrollments dont voici la teneur:
+Appariteur = {
+    agentId: string,
+    anneeId: string,
+    sectionId: string,
+    inscriptions: {
+        titre: string,
+        benefices: string,
+        banner: string,
+        montant: number,
+        promotionId: string,
+        souscriptions:{
+            date_created: date,
+            matricule: string,
+            etudiantId: string,
+            statut: 'En attente' | 'OK' | 'NO',
+            dossier: string
+        }[]
+    }[],
+    balance: number,
+    retraits:{
+        date_created: date,
+        montant: number,
+        telephone: string,
+        orderNumber: string,
+        currency: string,
+        statut: 'En attente' | 'OK' | 'NO'
+    }
+}
