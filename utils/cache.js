@@ -20,8 +20,7 @@ const cache = {
             console.error('Cache get error:', error);
             return null; // Fallback to no cache on error
         }
-    },
-    
+    },    
 
     async set(key, value, expires = 3600) {
         try {
