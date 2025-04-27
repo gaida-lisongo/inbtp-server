@@ -6,8 +6,7 @@ const retraitController = require('../controllers/retrait.controller');
 router.post('/add', async (req, res) => {
     try {
         const result = await retraitController.createRetrait({
-            ...req.body,
-            agentId: req.user.id
+            ...req.body
         });
         res.status(201).json(result);
     } catch (error) {
@@ -55,5 +54,30 @@ router.patch('/:ref/status', async (req, res) => {
         });
     }
 });
+
+// get all withdrawals for an agent
+router.get('/agent/:agentId', async (req, res) => {
+    try {
+        const { agentId } = req.params;
+
+        const retraits = await retraitController.getStats(agentId);
+        console.log("Retraits:", retraits);
+        
+        if (!retraits) {
+            return res.status(404).json({
+                success: false,
+                message: "No withdrawals found for this agent"
+            });
+        }
+        res.json(retraits);
+
+    } catch (error) {
+        res.status(400).json({
+            success: false,
+            message: error.message
+        });
+        
+    }
+})
 
 module.exports = router;

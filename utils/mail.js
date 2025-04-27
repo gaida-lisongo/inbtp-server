@@ -86,5 +86,6 @@ const sendMail = async (to, subject, html) => {
 module.exports = {
     otpEtudiant: async (etudiant, otp) => {
         return await otpMail(etudiant, otp);
-    }
+    },
+    sendMail
 };

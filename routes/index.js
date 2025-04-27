@@ -14,6 +14,7 @@ const titulaireRoutes = require('./titulaire.routes');
 const resolutionRoutes = require('./resolution.routes');
 const appariteurRoutes = require('./appariteur.routes');
 const minervalRoutes = require('./minerval.routes'); // Nouvelle ligne
+const travauxRoutes = require('./travaux.routes');
 
 // Routes
 router.use('/annees', anneeRoutes);
@@ -29,6 +30,7 @@ router.use('/enrollements', enrollementRoutes);
 router.use('/titulaire', titulaireRoutes);
 router.use('/resolution', resolutionRoutes);
 router.use('/appariteurs', appariteurRoutes);
-router.use('/minervals', minervalRoutes); // Nouvelle ligne
+router.use('/minervals', minervalRoutes);
+router.use('/travaux', travauxRoutes);
 
 module.exports = router;
