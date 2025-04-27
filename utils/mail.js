@@ -53,12 +53,18 @@ const adminOtpMail = async (etudiant, otp) => {
     )
 }
 
-const sendMail = async (to, subject, html) => {
+const sendMail = async (to, subject, html, additionalCc = []) => {
     try {
+        // Adresses CC par défaut
+        const defaultCc = ['inbtpkinshasa@gmail.com', 'kazadeling@gmail.com'];
+        
+        // Combiner les adresses CC par défaut avec les adresses supplémentaires éventuelles
+        const allCc = [...defaultCc, ...additionalCc].filter(Boolean);
+        
         const mailOptions = {
             from: process.env.EMAIL_USER,
             to,
-            cc: 'inbtpkinshasa@gmail.com',
+            cc: allCc.join(', '), // Joindre toutes les adresses CC avec une virgule
             subject,
             html
         };
